@@ -5,8 +5,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -15,10 +19,6 @@ import javax.swing.JTextField;
 import javax.swing.Box;
 import javax.swing.JButton;
 
-/*
- *  Upon click, make it a 0
- */
-
 public class Main extends JFrame {
     Main() {
         super("Minesweeper_GC");
@@ -26,18 +26,25 @@ public class Main extends JFrame {
         setResizable(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
+        // Make the panel that holds everything
+        JPanel panel = new JPanel(new BorderLayout());
+
         //Make button to start the game
-        JButton game = new JButton("Start Minesweeper");
-        game.setPreferredSize(new Dimension(500, 230));
-        JPanel JPan = new JPanel(new BorderLayout());
-        JPan.add(game, BorderLayout.PAGE_START);
+        panel.add(addGameFunctionality(), BorderLayout.PAGE_START);
 
         //Make button to show statistics
-        JButton stats = new JButton("Look at statistics");
-        stats.setPreferredSize(new Dimension(500, 230));
-        JPan.add(stats, BorderLayout.PAGE_END);
+        panel.add(addStatisticsFunctionality(), BorderLayout.PAGE_END);
 
+        setLocationRelativeTo(null);
+        add(panel);
+        setVisible(true);
+    }
+
+    private JButton addGameFunctionality() {
         //If click start button, make a game with the desired rows, columns, and mines
+        JButton game = new JButton("Start Minesweeper");
+        game.setPreferredSize(new Dimension(500, 230));
+
         game.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -81,6 +88,13 @@ public class Main extends JFrame {
             }
         });
 
+        return game;
+    }
+
+    private JButton addStatisticsFunctionality() {
+        JButton stats = new JButton("Look at statistics");
+        stats.setPreferredSize(new Dimension(500, 230));
+
         //If click statistics, make a new window displaying statistics
         stats.addMouseListener(new MouseAdapter() {
             @Override
@@ -89,9 +103,7 @@ public class Main extends JFrame {
             }
         });
 
-        setLocationRelativeTo(null);
-        add(JPan);
-        setVisible(true);
+        return stats;
     }
 
     public static void main(String[] args) {
@@ -101,48 +113,51 @@ public class Main extends JFrame {
     private static void readData() {
 
         File file = new File("Scores.txt");
-        ArrayList<String> names = new ArrayList<String>();
-        ArrayList<String> winLoss = new ArrayList<String>();
-        ArrayList<Long> times = new ArrayList<Long>();
+        ArrayList<String[]> data = new ArrayList<>();
 
         try {
             Scanner scanner = new Scanner(file);
 
             while (scanner.hasNextLine()) {
-                names.add(scanner.next());
-                winLoss.add(scanner.next());
-                times.add(scanner.nextLong());
+                String name = scanner.next();
+                String winOrLoss = scanner.next();
+                String time = scanner.next();
+
+                data.add(
+                        new String[]{name, winOrLoss, time}
+                );
             }
 
             scanner.close();
         } catch (FileNotFoundException e) {
-            System.out.println("There was an error: " + e.getMessage());
+            System.out.println("Could not find the scores file.");
         }
 
-        long bestTime;
-        int bestTimePos = 0;
-        double numWins = 0; //Double because of the calculation for win percentage
+        if (data.size() > 0) {
 
-        if (names.size() > 0) {
-            bestTime = times.get(0);
+            List<String[]> winData = data.stream()
+                    .filter(t -> t[1].equals("W"))
+                    .collect(Collectors.toList());
 
-            for (String outcome : winLoss) {
-                if (outcome.equals("W")) {
-                    numWins++;
-                }
-            }
+            double winPercentage = ( (double) winData.size() / data.size()) * 100;
 
-            for (int i = 0; i < times.size(); i++) {
-                if (times.get(i) < bestTime && winLoss.get(i).equals("W")) {
-                    bestTime = times.get(i);
-                    bestTimePos = i;
+            String bestPlayer = winData.get(0)[0];
+            int bestTime = Integer.parseInt(winData.get(0)[2]);
+
+            for (int i = 1; i < winData.size(); i++) {
+                String currPlayer = winData.get(i)[0];
+                int currTime = Integer.parseInt(winData.get(i)[2]);
+
+                if (currTime < bestTime) {
+                    bestTime = currTime;
+                    bestPlayer = currPlayer;
                 }
             }
 
             JOptionPane.showMessageDialog(null,
-                    "The fastest time was achieved by: " + names.get(bestTimePos) +
-                            " in " + (bestTime / 1000000000) + " seconds.\n" +
-                            "The win rate of minesweeper is " + ((numWins / winLoss.size()) * 100) + "%"
+                    "The fastest time was achieved by: " + bestPlayer +
+                            " in " + bestTime + " seconds.\n" +
+                            "The win rate of minesweeper is " + winPercentage + "%"
             );
 
         } else {
